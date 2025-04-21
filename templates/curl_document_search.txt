@@ -1,0 +1,14 @@
+
+#1. To upload:
+
+curl -X POST http://localhost:8000/upload \
+  -F "files[]=@path/to/your/file1.pdf" \
+  -F "files[]=@path/to/your/file2.docx"
+
+#2. query
+
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Moonlight Apartment lease start time and end time with status"}'
+
+

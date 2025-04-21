@@ -1,4 +1,4 @@
-streamlit
+flask
 pandas
 langchain
 openai
@@ -7,3 +7,5 @@ PyMuPDF
 python-docx
 tiktoken
 faiss-cpu
+stremlit
+
