@@ -2,18 +2,36 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>📄 CoPilot Document Search</title>
+  <title>📄 CoPilot Lease Extraction</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
-    .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-
-    h2 { color: #333; }
-    label { font-weight: bold; margin-top: 10px; display: block; }
-
-    input[type="file"], input[type="text"] {
-      width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 5px;
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      padding: 20px;
     }
-
+    .container {
+      max-width: 1000px;
+      margin: auto;
+      background: white;
+      padding: 25px;
+      border-radius: 10px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    }
+    h2, h3 {
+      color: #333;
+    }
+    label {
+      font-weight: bold;
+      margin-top: 15px;
+      display: block;
+    }
+    input[type="file"], input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
     button {
       margin-top: 15px;
       padding: 10px 20px;
@@ -23,67 +41,64 @@
       border-radius: 5px;
       cursor: pointer;
     }
-
     button:hover {
       background-color: #0056b3;
     }
-
-    .results {
-      margin-top: 30px;
+    .table {
+      margin-top: 20px;
+      width: 100%;
+      border-collapse: collapse;
     }
-
-    pre {
-      background: #f8f8f8;
-      padding: 15px;
-      border-radius: 5px;
-      white-space: pre-wrap;
-      word-wrap: break-word;
+    .table th, .table td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
     }
-
-    .download-links {
-      margin-top: 15px;
+    .download-buttons {
+      margin-top: 25px;
     }
-
-    .download-links a {
+    .download-buttons a {
+      display: inline-block;
       margin-right: 15px;
-      color: #007bff;
+      padding: 10px 18px;
+      background-color: #28a745;
+      color: white;
+      border-radius: 5px;
       text-decoration: none;
       font-weight: bold;
+      transition: background-color 0.3s ease;
     }
-
-    .download-links a:hover {
-      text-decoration: underline;
+    .download-buttons a:hover {
+      background-color: #218838;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>📄 CoPilot Document Search</h2>
+    <h2>📄 Lease Document Extraction</h2>
 
     <form action="/upload" method="post" enctype="multipart/form-data">
-      <label for="file">Upload Document (PDF/DOC/TXT):</label>
+      <label for="file">Upload Lease Document (PDF, DOCX, TXT):</label>
       <input type="file" name="file" required>
       <button type="submit">📤 Upload</button>
     </form>
 
     <form action="/search" method="get">
-      <label for="query">Search in Uploaded Documents:</label>
-      <input type="text" name="query" placeholder="e.g., invoice amount, client details..." required>
+      <label for="query">Search query:</label>
+      <input type="text" name="query" placeholder="e.g., tenant name, city, monthly rent..." required>
       <button type="submit">🔍 Search</button>
     </form>
 
     {% if results %}
-    <div class="results">
-      <h3>🔎 Search Results:</h3>
-      <pre>{{ results }}</pre>
-    </div>
+      <h3>📊 Extracted Lease Information:</h3>
+      {{ results | safe }}
     {% endif %}
 
     {% if download_links %}
-    <div class="download-links">
-      <a href="{{ download_links.json }}" download>📥 Download JSON</a>
-      <a href="{{ download_links.excel }}" download>📊 Download Excel</a>
-    </div>
+      <div class="download-buttons">
+        <a href="{{ download_links.json }}">📥 Download JSON</a>
+        <a href="{{ download_links.excel }}">📊 Download Excel</a>
+      </div>
     {% endif %}
   </div>
 </body>

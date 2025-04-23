@@ -5,14 +5,37 @@ Created on Sun Apr 20 15:57:31 2025
 @author: HP
 """
 
+# utils.py (Updated: includes get_requested_fields_from_prompt)
 import os
 import fitz  # PyMuPDF
 import docx
-import json
-import pandas as pd
+import re
+from langchain.schema import Document
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# === Field Mapping Dictionary ===
+FIELD_MAPPING = {
+    "unit": "Unit/Apartment Number",
+    "unit number": "Unit/Apartment Number",
+    "apartment number": "Unit/Apartment Number",
+    "floor": "Floor",
+    "start date": "Start Date",
+    "end date": "End Date",
+    "status": "Status",
+    "tenant name": "Tenant Name",
+    "monthly rent": "Monthly Rent",
+    "rent": "Monthly Rent",
+    "apartment": "Apartment"
+}
 
+def get_requested_fields_from_prompt(prompt):
+    prompt = prompt.lower()
+    requested_fields = []
+
+    for key, value in FIELD_MAPPING.items():
+        if key in prompt:
+            requested_fields.append(value)
+
+    return list(set(requested_fields)) if requested_fields else list(FIELD_MAPPING.values())
 
 def extract_text(file_path):
     ext = os.path.splitext(file_path)[1].lower()
@@ -24,7 +47,6 @@ def extract_text(file_path):
         return extract_text_from_txt(file_path)
     else:
         raise ValueError("Unsupported file type")
-        
 
 def extract_text_from_pdf(pdf_path):
     text = ""
@@ -37,7 +59,6 @@ def extract_text_from_pdf(pdf_path):
         print(f"Error reading PDF: {e}")
     return text
 
-
 def extract_text_from_docx(docx_path):
     text = ""
     try:
@@ -48,7 +69,6 @@ def extract_text_from_docx(docx_path):
         print(f"Error reading DOCX: {e}")
     return text
 
-
 def extract_text_from_txt(txt_path):
     try:
         with open(txt_path, "r", encoding="utf-8") as f:
@@ -57,50 +77,13 @@ def extract_text_from_txt(txt_path):
         print(f"Error reading TXT: {e}")
         return ""
 
-
-def extract_text(file_path):
-    ext = os.path.splitext(file_path)[1].lower()
-    if ext == ".pdf":
-        return extract_text_from_pdf(file_path)
-    elif ext == ".docx":
-        return extract_text_from_docx(file_path)
-    elif ext == ".txt":
-        return extract_text_from_txt(file_path)
-    else:
-        raise ValueError("Unsupported file type")
-
-
-def save_results_as_json(df, path):
-    try:
-        df_copy = df.copy()
-        df_copy = df_copy.applymap(lambda x: float(x) if isinstance(x, (int, float)) else str(x))
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(df_copy.to_dict(orient="records"), f, indent=2, ensure_ascii=False)
-    except Exception as e:
-        print(f"Error saving JSON: {e}")
-
-
-def save_results_as_excel(df, path):
-    try:
-        df.to_excel(path, index=False)
-    except Exception as e:
-        print(f"Error saving Excel: {e}")
-def save_uploaded_files(uploaded_files, upload_folder):
-    filepaths = []
-    os.makedirs(upload_folder, exist_ok=True)
-    for file in uploaded_files:
-        file_path = os.path.join(upload_folder, file.filename)
-        file.save(file_path)
-        filepaths.append(file_path)
-    return filepaths
-
-
-def prepare_documents(filepaths):
+def load_uploaded_documents(upload_dir):
     documents = []
-    for path in filepaths:
-        try:
-            text = extract_text(path)
-            documents.append({"filename": os.path.basename(path), "content": text})
-        except Exception as e:
-            print(f"Failed to process {path}: {e}")
-    return pd.DataFrame(documents)
+    for filename in os.listdir(upload_dir):
+        filepath = os.path.join(upload_dir, filename)
+        if os.path.isfile(filepath):
+            ext = os.path.splitext(filename)[1].lower()
+            if ext in [".pdf", ".docx", ".txt"]:
+                text = extract_text(filepath)
+                documents.append(Document(page_content=text, metadata={"source": filename}))
+    return documents
