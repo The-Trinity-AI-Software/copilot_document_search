@@ -10,7 +10,7 @@ from flask import Flask, request, render_template, send_file, session
 import os
 import pandas as pd
 from datetime import datetime
-from app.utils import extract_text, get_requested_fields_from_prompt
+from app.utils import extract_text, load_uploaded_documents, get_requested_fields_from_prompt
 from app.lease_extraction import extract_all_lease_records
 from langchain.schema import Document
 
@@ -47,7 +47,7 @@ def upload():
 def search():
     uploaded_file_path = session.get("uploaded_file_path")
     if not uploaded_file_path or not os.path.exists(uploaded_file_path):
-        return render_template("index.html", results="❌ No uploaded file found.")
+        return render_template("index.html", results="❌ No uploaded file found. Please upload a document first.")
 
     query = request.args.get("query", "")
     if not query:
@@ -85,7 +85,6 @@ def search():
             "excel": "/download/excel"
         }
     )
-
 @app.route("/download/excel")
 def download_excel():
     path = session.get("excel_path")
@@ -101,4 +100,4 @@ def download_json():
     return "JSON file not found.", 404
 
 if __name__ == "__main__":
-    app.run(debug=True, port=8000)
+    app.run(debug=True, port=8086)
