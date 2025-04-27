@@ -1,0 +1,13 @@
+# Upload file
+curl -X POST http://localhost:8000/upload \
+  -F "file=@G:/MVP/mnt/data/copilot_document_search/uploads/SampleLease.pdf"
+
+# Search for Lease info
+curl -G http://localhost:8000/search \
+  --data-urlencode "query=tenant name, start date, monthly rent, city"
+
+# Download Excel
+curl -O http://localhost:8000/download/excel
+
+# Download JSON
+curl -O http://localhost:8000/download/json

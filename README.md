@@ -12,15 +12,17 @@ copilot_docsearch/
 ├── app/
 │   ├── __init__.py
 │   ├── utils.py              # Utility functions for document parsing, searching
-│   └── search_engine.py      # Logic for LLM / semantic search / keyword match
+│   |── search_engine.py
+    |--- lease_extraction.py
+     # Logic for LLM / semantic search / keyword match
 │
-├── static/
-│   └── styles.css            # (Optional) custom CSS
+├── templates/
+│   └── index.html           # (Optional) custom CSS
 │
 ├── uploads/                  # Uploaded user documents (PDF, DOCX, TXT)
 ├── output/                   # Stores output Excel and JSON files
 │
-├── streamlit_app.py          # Main Streamlit front-end entry
-├── run.py                    # Flask backend if needed (API mode)
+├          
+├── main.py                    # Flask backend if needed (API mode)
 ├── requirements.txt
 ├── README.md
