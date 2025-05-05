@@ -1,103 +1,155 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Sun Apr 20 16:00:55 2025
-
-@author: HP
-"""
-
-
-from flask import Flask, request, render_template, send_file, session
+from flask import Flask, request, jsonify, send_file, render_template
 import os
-import pandas as pd
+import json
 from datetime import datetime
-from app.utils import extract_text, load_uploaded_documents, get_requested_fields_from_prompt
-from app.lease_extraction import extract_all_lease_records
-from langchain.schema import Document
+import pandas as pd
+from app.utils import extract_all_fields, extract_text, get_requested_fields_from_prompt
+from app.search_engine import SearchEngine
+import re
+
+UPLOAD_FOLDER = "uploads"
+UPLOAD_LOG = "uploaded_files.json"
+EXCEL_FOLDER = "excel"
+JSON_FOLDER = "json"
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(EXCEL_FOLDER, exist_ok=True)
+os.makedirs(JSON_FOLDER, exist_ok=True)
 
 app = Flask(__name__)
-app.secret_key = "lease_secret_ravi_2025"
+search_engine = SearchEngine()
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
-EXPORT_BASE_DIR = "G:/MVP/mnt/data/copilot_document_search/output"
-EXCEL_EXPORT_DIR = os.path.join(EXPORT_BASE_DIR, "excel")
-JSON_EXPORT_DIR = os.path.join(EXPORT_BASE_DIR, "json")
+loaded_files = []
+apartment_names = []
 
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-os.makedirs(EXCEL_EXPORT_DIR, exist_ok=True)
-os.makedirs(JSON_EXPORT_DIR, exist_ok=True)
+@app.before_first_request
+def load_documents():
+    global loaded_files, apartment_names
+    if os.path.exists(UPLOAD_LOG):
+        with open(UPLOAD_LOG, "r") as f:
+            loaded_files = json.load(f)
+    else:
+        loaded_files = []
+
+    current_files = set(os.listdir(UPLOAD_FOLDER))
+    loaded_files = list(current_files.intersection(set(loaded_files)))
+
+    with open(UPLOAD_LOG, "w") as f:
+        json.dump(loaded_files, f)
+
+    docs = []
+    apartment_names.clear()
+
+    for file in loaded_files:
+        path = os.path.join(UPLOAD_FOLDER, file)
+        text = extract_text(path)
+        fields = extract_all_fields(text)
+
+        apartment = fields.get("Apartment Name", "")
+        if apartment and apartment != "Not Found" and apartment not in apartment_names:
+            apartment_names.append(apartment)
+
+        docs.append(text)
+
+    if docs:
+        search_engine.prepare_documents(docs)
 
 @app.route("/")
-def index():
-    return render_template("index.html", results=None, download_links=None)
+def home():
+    return render_template("index.html")
 
 @app.route("/upload", methods=["POST"])
-def upload():
-    if "file" not in request.files:
-        return render_template("index.html", results="\u26a0\ufe0f No file uploaded.")
-    
-    file = request.files["file"]
-    save_path = os.path.join(UPLOAD_DIR, file.filename)
-    file.save(save_path)
+def upload_files():
+    global loaded_files
 
-    session["uploaded_file_path"] = save_path
-    return render_template("index.html", results=f"✅ Uploaded: {file.filename}")
+    files = request.files.getlist("files[]")
+    for file in files:
+        filename = file.filename
+        save_path = os.path.join(UPLOAD_FOLDER, filename)
 
-@app.route("/search", methods=["GET"])
+        file.save(save_path)
+
+        if filename not in loaded_files:
+            loaded_files.append(filename)
+
+    with open(UPLOAD_LOG, "w") as f:
+        json.dump(loaded_files, f)
+
+    return jsonify({"message": "✅ Files loaded / updated successfully!"})
+
+def detect_apartment_name_dynamic(query):
+    query_lower = query.lower()
+    for apartment in apartment_names:
+        if apartment.lower() in query_lower:
+            return apartment.lower()
+    return None
+
+@app.route("/search", methods=["POST"])
 def search():
-    uploaded_file_path = session.get("uploaded_file_path")
-    if not uploaded_file_path or not os.path.exists(uploaded_file_path):
-        return render_template("index.html", results="❌ No uploaded file found. Please upload a document first.")
+    query = request.form.get("query")
+    mode = request.form.get("search_mode")
 
-    query = request.args.get("query", "")
-    if not query:
-        return render_template("index.html", results="\u26a0\ufe0f Please enter a query.")
+    results = []
+    apartment_filter = detect_apartment_name_dynamic(query)
+    requested_attributes = get_requested_fields_from_prompt(query)
 
-    text = extract_text(uploaded_file_path)
-    doc = Document(page_content=text, metadata={"source": os.path.basename(uploaded_file_path)})
-    df = extract_all_lease_records([doc])
+    if "Apartment Name" not in requested_attributes:
+        requested_attributes.insert(0, "Apartment Name")
 
-    if df.empty:
-        return render_template("index.html", results="❌ No lease records found.")
+    flat_match = re.search(r'(flat|unit|apartment)\s*(\d+)', query.lower())
+    query_flat_number = flat_match.group(2) if flat_match else None
 
-    requested_fields = get_requested_fields_from_prompt(query)
-    available_fields = [f for f in requested_fields if f in df.columns]
-    filtered_df = df[available_fields] if available_fields else df
+    matched_any = False
 
-    apt_name = df["Apartment"].iloc[0].replace(" ", "_") if "Apartment" in df.columns and not df.empty else "lease_output"
-    today = datetime.now().strftime("%Y%m%d")
-    excel_filename = f"{apt_name}_{today}.xlsx"
-    json_filename = f"{apt_name}_{today}.json"
-    excel_path = os.path.join(EXCEL_EXPORT_DIR, excel_filename)
-    json_path = os.path.join(JSON_EXPORT_DIR, json_filename)
+    for file in loaded_files:
+        path = os.path.join(UPLOAD_FOLDER, file)
+        text = extract_text(path)
+        fields = extract_all_fields(text)
 
-    filtered_df.to_excel(excel_path, index=False)
-    filtered_df.to_json(json_path, orient="records", indent=2)
+        doc_apartment_name = fields.get("Apartment Name", "").lower()
 
-    session["excel_path"] = excel_path
-    session["json_path"] = json_path
+        if doc_apartment_name == "not found" and apartment_filter:
+            fields["Apartment Name"] = apartment_filter.title() + " Apartment"
+            doc_apartment_name = apartment_filter
 
-    return render_template(
-        "index.html",
-        results=filtered_df.to_html(classes="table", index=False, border=0),
-        download_links={
-            "json": "/download/json",
-            "excel": "/download/excel"
-        }
-    )
-@app.route("/download/excel")
-def download_excel():
-    path = session.get("excel_path")
-    if path and os.path.exists(path):
-        return send_file(path, as_attachment=True)
-    return "Excel file not found.", 404
+        if apartment_filter:
+            if apartment_filter in doc_apartment_name:
+                matched_any = True
+                if query_flat_number:
+                    if fields.get("Flat Number", "").lower() == query_flat_number:
+                        results.append({attr: fields.get(attr, "") for attr in requested_attributes})
+                else:
+                    results.append({attr: fields.get(attr, "") for attr in requested_attributes})
+        else:
+            results.append({attr: fields.get(attr, "") for attr in requested_attributes})
 
-@app.route("/download/json")
+    if apartment_filter and not matched_any:
+        results.append({attr: "" for attr in requested_attributes})
+
+    return jsonify(results)
+
+
+@app.route("/download_json", methods=["POST"])
 def download_json():
-    path = session.get("json_path")
-    if path and os.path.exists(path):
-        return send_file(path, as_attachment=True)
-    return "JSON file not found.", 404
+    data = request.get_json()
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    json_path = os.path.join(JSON_FOLDER, f"results_{timestamp}.json")
+
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
+
+    return send_file(json_path, as_attachment=True)
+
+@app.route("/download_excel", methods=["POST"])
+def download_excel():
+    data = request.get_json()
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    excel_path = os.path.join(EXCEL_FOLDER, f"results_{timestamp}.xlsx")
+
+    df = pd.DataFrame(data)
+    df.to_excel(excel_path, index=False)
+
+    return send_file(excel_path, as_attachment=True)
 
 if __name__ == "__main__":
     app.run(debug=True, port=8086)
