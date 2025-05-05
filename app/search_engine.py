@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Sun Apr 20 15:59:22 2025
-
-@author: HP
-"""
-
 import os
 import json
 from typing import List, Tuple, Union
@@ -14,7 +7,8 @@ import numpy as np
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
-class SemanticSearchEngine:
+class SearchEngine:
+
     def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
         self.model = SentenceTransformer(model_name)
         self.docs = []
