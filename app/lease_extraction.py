@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Apr 22 11:15:22 2025
-
-@author: HP
-"""
-
 import re
 import pandas as pd
 from datetime import datetime
@@ -83,3 +76,9 @@ def extract_all_lease_records(docs, apartment_name=None):
         all_records.append(record)
 
     return pd.DataFrame(all_records) if all_records else pd.DataFrame()
+
+def extract_and_save_json(filepath):
+    # Example logic to extract and return text
+    from utils import extract_text
+    text = extract_text(filepath)
+    return text
